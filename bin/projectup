@@ -1,0 +1,123 @@
+#!/bin/bash
+#
+# projectup — Laragon-style dev environment for Linux/WSL (Mac coming)
+#
+# Usage:
+#   projectup                 Auto-detect framework in cwd and set it up
+#   projectup <framework>     Explicit framework (laravel, ...)
+#   projectup --help|-h       Show help
+#   projectup --version|-v    Show version
+#
+# Config:
+#   ~/.config/projectup/projectup.conf
+#
+# Docs:
+#   https://github.com/ArtroxxGames/projectup
+
+set -uo pipefail
+
+# ────────────────────────────────────────────────────────────────
+#  Self-locate (sigue symlinks — permite instalar como symlink)
+# ────────────────────────────────────────────────────────────────
+_self="${BASH_SOURCE[0]}"
+while [ -L "$_self" ]; do
+    _target=$(readlink "$_self")
+    case "$_target" in
+        /*) _self="$_target" ;;
+        *)  _self="$(dirname "$_self")/$_target" ;;
+    esac
+done
+PROJECTUP_ROOT="$(cd "$(dirname "$_self")/.." && pwd)"
+unset _self _target
+
+# ────────────────────────────────────────────────────────────────
+#  Versión y libs
+# ────────────────────────────────────────────────────────────────
+VERSION=$(cat "$PROJECTUP_ROOT/VERSION" 2>/dev/null || echo "0.0.0")
+
+# shellcheck disable=SC1091
+. "$PROJECTUP_ROOT/lib/common.sh"
+# shellcheck disable=SC1091
+. "$PROJECTUP_ROOT/lib/detect.sh"
+
+projectup_load_config
+
+# ────────────────────────────────────────────────────────────────
+#  Help / usage
+# ────────────────────────────────────────────────────────────────
+_usage() {
+    cat <<EOF
+${BOLD}projectup ${VERSION}${NC} — Laragon-style dev environment for Linux/WSL
+
+${BOLD}Usage:${NC}
+  projectup                    Auto-detect framework in cwd and set it up
+  projectup <framework>        Explicit framework handler
+  projectup --help, -h         Show this help
+  projectup --version, -v      Show version
+
+${BOLD}Supported frameworks (v${VERSION}):${NC}
+  laravel                      Laravel 10/11/12 (PHP + Composer + Node/Vite)
+
+${BOLD}Config file:${NC}
+  \$HOME/.config/projectup/projectup.conf
+  (se crea con defaults la primera vez que corrés ${BOLD}projectup${NC})
+
+${BOLD}Environment overrides:${NC}
+  PROJECTUP_CONFIG=<path>      Usar un config alternativo
+
+${BOLD}Docs y reportes:${NC}
+  https://github.com/ArtroxxGames/projectup
+EOF
+}
+
+_dispatch_framework() {
+    local framework="$1"; shift
+    local handler="$PROJECTUP_ROOT/lib/frameworks/${framework}.sh"
+    if [ ! -f "$handler" ]; then
+        printf "${RED}❌  Framework '%s' no soportado todavía.${NC}\n" "$framework" >&2
+        printf "    Mirá 'projectup --help' para ver los disponibles.\n" >&2
+        return 1
+    fi
+    # shellcheck disable=SC1090
+    . "$handler"
+    if ! type "${framework}_setup" >/dev/null 2>&1; then
+        printf "${RED}❌  '%s' no define la función %s_setup.${NC}\n" "$handler" "$framework" >&2
+        return 1
+    fi
+    "${framework}_setup" "$@"
+}
+
+# ────────────────────────────────────────────────────────────────
+#  Router
+# ────────────────────────────────────────────────────────────────
+case "${1:-}" in
+    -h|--help|help)
+        _usage
+        exit 0
+        ;;
+    -v|--version|version)
+        printf "projectup %s\n" "$VERSION"
+        exit 0
+        ;;
+    "")
+        framework=$(detect_framework || true)
+        if [ -z "$framework" ]; then
+            printf "${RED}❌  No pude detectar el framework en %s.${NC}\n" "$PWD" >&2
+            printf "    Pasalo explícito: projectup <framework>\n" >&2
+            printf "    Frameworks soportados: laravel\n" >&2
+            exit 1
+        fi
+        printf "${CYAN}ℹ️   Framework detectado: %s${NC}\n" "$framework"
+        _dispatch_framework "$framework"
+        ;;
+    laravel|symfony|nextjs|nuxt|rails|django)
+        framework="$1"
+        shift
+        _dispatch_framework "$framework" "$@"
+        ;;
+    *)
+        printf "${RED}❌  Subcomando desconocido: %s${NC}\n" "$1" >&2
+        _usage >&2
+        exit 1
+        ;;
+esac

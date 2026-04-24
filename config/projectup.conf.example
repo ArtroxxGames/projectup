@@ -1,0 +1,40 @@
+# ~/.config/projectup/projectup.conf
+#
+# Configuración de projectup para tu entorno local de desarrollo.
+# Este archivo se sourcea como bash, así que cualquier variable exportable es
+# válida. Los valores dejados comentados usan los defaults del script.
+
+# ─── MySQL ────────────────────────────────────────────────────────────
+# Host, puerto, usuario y password del MySQL local.
+# Para un entorno de dev es común tener root sin password — NO hagas esto
+# en producción.
+MYSQL_HOST=127.0.0.1
+MYSQL_PORT=3306
+MYSQL_USER=root
+MYSQL_PASS=
+
+# ─── PostgreSQL ───────────────────────────────────────────────────────
+# 5432 es el puerto estándar. Si usás un puerto custom (por ej. 5439),
+# cambialo acá.
+PGSQL_HOST=127.0.0.1
+PGSQL_PORT=5432
+PGSQL_USER=postgres
+PGSQL_PASS=postgres
+
+# ─── Certificados SSL (mkcert) ────────────────────────────────────────
+# Directorio donde se guardan los .pem generados con mkcert.
+# Default: $HOME/certificados
+#CERT_DIR="$HOME/certificados"
+
+# ─── Nginx ────────────────────────────────────────────────────────────
+# Grupo del webserver (www-data en Debian/Ubuntu, nginx en otros).
+WEB_GROUP=www-data
+#NGINX_SITES_AVAILABLE=/etc/nginx/sites-available
+#NGINX_SITES_ENABLED=/etc/nginx/sites-enabled
+
+# ─── Windows hosts (solo aplica a WSL) ────────────────────────────────
+# Path al archivo hosts de Windows. Si corrés WSL y querés que projectup
+# intente agregar el dominio acá, dejalo en el default.
+# Si estás en Linux puro, poné WIN_HOSTS_PATH="" (vacío).
+# Si este archivo no existe, el default se auto-desactiva.
+#WIN_HOSTS_PATH=/mnt/c/Windows/System32/drivers/etc/hosts
