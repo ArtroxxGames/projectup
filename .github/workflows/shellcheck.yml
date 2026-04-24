@@ -1,0 +1,44 @@
+name: shellcheck
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  shellcheck:
+    name: Lint bash scripts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install shellcheck
+        run: sudo apt-get install -y shellcheck
+
+      - name: Run shellcheck
+        run: |
+          # Flags:
+          #   -x : permite que source siga archivos entre directorios
+          #   -P : paths donde buscar los source-d files
+          #   -e SC1091 : ignorar "can't follow" para archivos sourceados por path dinámico
+          shellcheck -x -P bin:lib:lib/frameworks \
+            -e SC1091 \
+            bin/projectup \
+            lib/common.sh \
+            lib/detect.sh \
+            lib/frameworks/*.sh \
+            install.sh \
+            uninstall.sh
+
+  bash-syntax:
+    name: Bash syntax check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: bash -n on all scripts
+        run: |
+          for f in bin/projectup lib/common.sh lib/detect.sh lib/frameworks/*.sh install.sh uninstall.sh; do
+            bash -n "$f" && echo "OK  $f" || { echo "FAIL $f"; exit 1; }
+          done
