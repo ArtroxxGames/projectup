@@ -19,9 +19,9 @@ C_YELLOW=$'\033[1;33m'
 C_CYAN=$'\033[0;36m'
 C_NC=$'\033[0m'
 
-info()    { printf "${C_CYAN}ℹ️   %s${C_NC}\n" "$1"; }
-success() { printf "${C_GREEN}✅  %s${C_NC}\n" "$1"; }
-warn()    { printf "${C_YELLOW}⚠️   %s${C_NC}\n" "$1"; }
+info()    { printf '%sℹ️   %s%s\n' "$C_CYAN" "$1" "$C_NC"; }
+success() { printf '%s✅  %s%s\n' "$C_GREEN" "$1" "$C_NC"; }
+warn()    { printf '%s⚠️   %s%s\n' "$C_YELLOW" "$1" "$C_NC"; }
 
 PURGE=0
 for arg in "$@"; do

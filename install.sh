@@ -30,16 +30,16 @@ C_CYAN=$'\033[0;36m'
 C_BOLD=$'\033[1m'
 C_NC=$'\033[0m'
 
-info()    { printf "${C_CYAN}ℹ️   %s${C_NC}\n" "$1"; }
-success() { printf "${C_GREEN}✅  %s${C_NC}\n" "$1"; }
-warn()    { printf "${C_YELLOW}⚠️   %s${C_NC}\n" "$1"; }
-die()     { printf "${C_RED}❌  %s${C_NC}\n" "$1" >&2; exit 1; }
+info()    { printf '%sℹ️   %s%s\n' "$C_CYAN" "$1" "$C_NC"; }
+success() { printf '%s✅  %s%s\n' "$C_GREEN" "$1" "$C_NC"; }
+warn()    { printf '%s⚠️   %s%s\n' "$C_YELLOW" "$1" "$C_NC"; }
+die()     { printf '%s❌  %s%s\n' "$C_RED" "$1" "$C_NC" >&2; exit 1; }
 
 # ────────────────────────────────────────────────────────────────
 #  1. Sanity checks
 # ────────────────────────────────────────────────────────────────
-printf "${C_BOLD}projectup installer${C_NC}\n"
-printf "───────────────────────\n\n"
+printf '%sprojectup installer%s\n' "$C_BOLD" "$C_NC"
+printf '───────────────────────\n\n'
 
 case "$(uname -s)" in
     Linux) ;;
@@ -92,10 +92,10 @@ fi
 #  5. Listo
 # ────────────────────────────────────────────────────────────────
 VER=$(cat "$INSTALL_DIR/VERSION" 2>/dev/null || echo "?")
-printf "\n${C_GREEN}${C_BOLD}✨  projectup %s instalado${C_NC}\n\n" "$VER"
-printf "${C_BOLD}Próximos pasos:${C_NC}\n"
-printf "  1. Revisá tu config:   ${C_CYAN}%s${C_NC}\n" "$USER_CONFIG"
-printf "  2. Abrí un proyecto:   ${C_CYAN}cd ~/projects/mi-laravel${C_NC}\n"
-printf "  3. Corré projectup:    ${C_CYAN}projectup${C_NC}  (auto-detecta el framework)\n"
-printf "     o explícito:        ${C_CYAN}projectup laravel${C_NC}\n\n"
-printf "Docs: ${C_CYAN}https://github.com/ArtroxxGames/projectup${C_NC}\n"
+printf '\n%s%s✨  projectup %s instalado%s\n\n' "$C_GREEN" "$C_BOLD" "$VER" "$C_NC"
+printf '%sPróximos pasos:%s\n' "$C_BOLD" "$C_NC"
+printf '  1. Revisá tu config:   %s%s%s\n' "$C_CYAN" "$USER_CONFIG" "$C_NC"
+printf '  2. Abrí un proyecto:   %scd ~/projects/mi-laravel%s\n' "$C_CYAN" "$C_NC"
+printf '  3. Corré projectup:    %sprojectup%s  (auto-detecta el framework)\n' "$C_CYAN" "$C_NC"
+printf '     o explícito:        %sprojectup laravel%s\n\n' "$C_CYAN" "$C_NC"
+printf 'Docs: %shttps://github.com/ArtroxxGames/projectup%s\n' "$C_CYAN" "$C_NC"

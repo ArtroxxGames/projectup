@@ -268,9 +268,12 @@ laravel_setup() {
         local tmp_composer
         tmp_composer=$(mktemp)
         if curl -sS https://getcomposer.org/installer -o "$tmp_composer" 2>>"$LOG_FILE"; then
-            sudo "$PHP_BIN" "$tmp_composer" --install-dir=/usr/local/bin --filename=composer >>"$LOG_FILE" 2>&1 \
-                && log_success "Composer instalado" \
-                || log_error "Falló la instalación de Composer"
+            # sudo no afecta redirects: la salida la capturamos con tee (que sí ve el pipe)
+            if sudo "$PHP_BIN" "$tmp_composer" --install-dir=/usr/local/bin --filename=composer 2>&1 | tee -a "$LOG_FILE" >/dev/null; then
+                log_success "Composer instalado"
+            else
+                log_error "Falló la instalación de Composer"
+            fi
             rm -f "$tmp_composer"
         else
             log_error "No pude descargar el instalador de Composer"
@@ -389,10 +392,10 @@ laravel_setup() {
         fi
 
         echo ""
-        printf "${BOLD}Motor de base de datos:${NC}\n"
-        printf "  1) MySQL       (%s:%s, %s)\n" "$MYSQL_HOST" "$MYSQL_PORT" "$MYSQL_USER"
-        printf "  2) PostgreSQL  (%s:%s, %s)\n" "$PGSQL_HOST" "$PGSQL_PORT" "$PGSQL_USER"
-        printf "  3) SQLite      (archivo local)\n"
+        printf '%sMotor de base de datos:%s\n' "$BOLD" "$NC"
+        printf '  1) MySQL       (%s:%s, %s)\n' "$MYSQL_HOST" "$MYSQL_PORT" "$MYSQL_USER"
+        printf '  2) PostgreSQL  (%s:%s, %s)\n' "$PGSQL_HOST" "$PGSQL_PORT" "$PGSQL_USER"
+        printf '  3) SQLite      (archivo local)\n'
         local choice
         choice=$(ask "Elegí opción" "1")
         case "$choice" in
@@ -414,12 +417,18 @@ laravel_setup() {
 
         case "$db_driver" in
             mysql)
-                _laravel_test_mysql && _laravel_ensure_mysql_db "$db_name" \
-                    || log_error "No puedo conectar a MySQL en $MYSQL_HOST:$MYSQL_PORT"
+                if _laravel_test_mysql; then
+                    _laravel_ensure_mysql_db "$db_name" || true
+                else
+                    log_error "No puedo conectar a MySQL en $MYSQL_HOST:$MYSQL_PORT"
+                fi
                 ;;
             pgsql)
-                _laravel_test_pgsql postgres && _laravel_ensure_pgsql_db "$db_name" \
-                    || log_error "No puedo conectar a PostgreSQL en $PGSQL_HOST:$PGSQL_PORT"
+                if _laravel_test_pgsql postgres; then
+                    _laravel_ensure_pgsql_db "$db_name" || true
+                else
+                    log_error "No puedo conectar a PostgreSQL en $PGSQL_HOST:$PGSQL_PORT"
+                fi
                 ;;
         esac
     fi
@@ -427,9 +436,11 @@ laravel_setup() {
     env_set "APP_URL" "https://$domain" "$ENV_FILE"
     if [ -z "$(env_get APP_KEY "$ENV_FILE" 2>/dev/null || echo "")" ]; then
         log_info "Generando APP_KEY..."
-        "$PHP_BIN" artisan key:generate --force >>"$LOG_FILE" 2>&1 \
-            && log_success "APP_KEY generado" \
-            || log_error "Falló key:generate"
+        if "$PHP_BIN" artisan key:generate --force >>"$LOG_FILE" 2>&1; then
+            log_success "APP_KEY generado"
+        else
+            log_error "Falló key:generate"
+        fi
     fi
 
     # ── Node.js ──
@@ -484,15 +495,23 @@ laravel_setup() {
             case "$pkg_mgr" in
                 pnpm|yarn)
                     log_info "Instalando $pkg_mgr vía corepack..."
-                    corepack enable >>"$LOG_FILE" 2>&1 \
-                        && corepack prepare "${pkg_mgr}@latest" --activate >>"$LOG_FILE" 2>&1 \
-                        || log_warn "Falló corepack"
-                    have_cmd "$pkg_mgr" || npm install -g "$pkg_mgr" >>"$LOG_FILE" 2>&1 \
-                        || log_error "No pude instalar $pkg_mgr"
+                    if corepack enable >>"$LOG_FILE" 2>&1 && \
+                       corepack prepare "${pkg_mgr}@latest" --activate >>"$LOG_FILE" 2>&1; then
+                        :
+                    else
+                        log_warn "Falló corepack"
+                    fi
+                    if ! have_cmd "$pkg_mgr"; then
+                        if ! npm install -g "$pkg_mgr" >>"$LOG_FILE" 2>&1; then
+                            log_error "No pude instalar $pkg_mgr"
+                        fi
+                    fi
                     ;;
                 bun)
                     log_info "Instalando bun vía npm..."
-                    npm install -g bun >>"$LOG_FILE" 2>&1 || log_error "No pude instalar bun"
+                    if ! npm install -g bun >>"$LOG_FILE" 2>&1; then
+                        log_error "No pude instalar bun"
+                    fi
                     ;;
             esac
         fi
@@ -502,18 +521,22 @@ laravel_setup() {
         else
             if have_cmd "$pkg_mgr"; then
                 log_info "Instalando dependencias con $pkg_mgr install (puede tardar)..."
-                "$pkg_mgr" install 2>>"$LOG_FILE" \
-                    && log_success "Dependencias de Node instaladas" \
-                    || log_error "Falló $pkg_mgr install — revisá $LOG_FILE"
+                if "$pkg_mgr" install 2>>"$LOG_FILE"; then
+                    log_success "Dependencias de Node instaladas"
+                else
+                    log_error "Falló $pkg_mgr install — revisá $LOG_FILE"
+                fi
             fi
         fi
 
         if grep -qE '"build"[[:space:]]*:' package.json 2>/dev/null && have_cmd "$pkg_mgr"; then
             if ask_yn "¿Corro '$pkg_mgr run build' para compilar los assets?" "y"; then
                 log_info "Compilando assets (puede tardar)..."
-                "$pkg_mgr" run build 2>>"$LOG_FILE" \
-                    && log_success "Assets compilados (public/build/manifest.json listo)" \
-                    || log_error "Falló $pkg_mgr run build — revisá $LOG_FILE"
+                if "$pkg_mgr" run build 2>>"$LOG_FILE"; then
+                    log_success "Assets compilados (public/build/manifest.json listo)"
+                else
+                    log_error "Falló $pkg_mgr run build — revisá $LOG_FILE"
+                fi
             else
                 log_warn "Salteando build. Si Laravel usa Vite, abrir la web va a tirar ViteManifestNotFoundException."
             fi
@@ -539,9 +562,11 @@ laravel_setup() {
             log_info "Certificados ya existen para $domain"
         else
             log_info "Generando certificados para $domain..."
-            (cd "$CERT_DIR" && mkcert "$domain" >>"$LOG_FILE" 2>&1) \
-                && log_success "Certificados generados en $CERT_DIR" \
-                || log_error "Falló la generación de certificados"
+            if (cd "$CERT_DIR" && mkcert "$domain" >>"$LOG_FILE" 2>&1); then
+                log_success "Certificados generados en $CERT_DIR"
+            else
+                log_error "Falló la generación de certificados"
+            fi
         fi
     fi
 
@@ -598,11 +623,13 @@ EOF
     sudo ln -s "$nginx_conf" "$NGINX_SITES_ENABLED/$project_name"
 
     if run_silent "nginx -t" sudo nginx -t; then
-        run_silent "nginx reload" sudo service nginx reload \
-            && log_success "Nginx recargado con el nuevo site" \
-            || { run_silent "nginx restart" sudo service nginx restart \
-                && log_success "Nginx reiniciado" \
-                || log_error "Falló el reinicio de Nginx"; }
+        if run_silent "nginx reload" sudo service nginx reload; then
+            log_success "Nginx recargado con el nuevo site"
+        elif run_silent "nginx restart" sudo service nginx restart; then
+            log_success "Nginx reiniciado"
+        else
+            log_error "Falló el reinicio de Nginx"
+        fi
     else
         log_error "Config de Nginx inválida — revisá $LOG_FILE"
     fi
@@ -644,9 +671,11 @@ EOF
     log_step "Migraciones"
     if ask_yn "¿Corro las migraciones? (artisan migrate)" "n"; then
         log_info "Corriendo php artisan migrate..."
-        "$PHP_BIN" artisan migrate --force 2>&1 | tee -a "$LOG_FILE" \
-            && log_success "Migraciones completadas" \
-            || log_error "Falló artisan migrate — revisá $LOG_FILE"
+        if "$PHP_BIN" artisan migrate --force 2>&1 | tee -a "$LOG_FILE"; then
+            log_success "Migraciones completadas"
+        else
+            log_error "Falló artisan migrate — revisá $LOG_FILE"
+        fi
     else
         log_info "Salteando migraciones (podés correrlas después: $PHP_BIN artisan migrate)"
     fi
@@ -654,9 +683,11 @@ EOF
     log_step "Seeders"
     if ask_yn "¿Corro los seeders? (artisan db:seed)" "n"; then
         log_info "Corriendo php artisan db:seed..."
-        "$PHP_BIN" artisan db:seed --force 2>&1 | tee -a "$LOG_FILE" \
-            && log_success "Seeders completados" \
-            || log_warn "Falló db:seed (causa típica: seeders no idempotentes con ::create() en vez de ::firstOrCreate())."
+        if "$PHP_BIN" artisan db:seed --force 2>&1 | tee -a "$LOG_FILE"; then
+            log_success "Seeders completados"
+        else
+            log_warn "Falló db:seed (causa típica: seeders no idempotentes con ::create() en vez de ::firstOrCreate())."
+        fi
     else
         log_info "Salteando seeders"
     fi
@@ -664,18 +695,20 @@ EOF
     # ── optimize:clear final ──
     log_step "Optimización final"
     log_info "Corriendo optimize:clear..."
-    "$PHP_BIN" artisan optimize:clear >>"$LOG_FILE" 2>&1 \
-        && log_success "optimize:clear OK" \
-        || log_warn "Falló optimize:clear (si CACHE_STORE=database, necesita la tabla 'cache')"
+    if "$PHP_BIN" artisan optimize:clear >>"$LOG_FILE" 2>&1; then
+        log_success "optimize:clear OK"
+    else
+        log_warn "Falló optimize:clear (si CACHE_STORE=database, necesita la tabla 'cache')"
+    fi
 
     # ── Resumen ──
     log_step "Listo"
-    printf "${GREEN}${BOLD}✨  Proyecto configurado${NC}\n"
-    printf "    ${BOLD}URL:${NC}      https://%s\n" "$domain"
-    printf "    ${BOLD}PHP:${NC}      %s\n" "$PHP_VER"
-    printf "    ${BOLD}DB:${NC}       %s → %s\n" "$db_driver" "$db_name"
-    printf "    ${BOLD}Nginx:${NC}    %s\n" "$nginx_conf"
-    printf "    ${BOLD}Certs:${NC}    %s/%s.pem\n" "$CERT_DIR" "$domain"
+    printf '%s%s✨  Proyecto configurado%s\n' "$GREEN" "$BOLD" "$NC"
+    printf '    %sURL:%s      https://%s\n' "$BOLD" "$NC" "$domain"
+    printf '    %sPHP:%s      %s\n' "$BOLD" "$NC" "$PHP_VER"
+    printf '    %sDB:%s       %s → %s\n' "$BOLD" "$NC" "$db_driver" "$db_name"
+    printf '    %sNginx:%s    %s\n' "$BOLD" "$NC" "$nginx_conf"
+    printf '    %sCerts:%s    %s/%s.pem\n' "$BOLD" "$NC" "$CERT_DIR" "$domain"
 
     projectup_summary
     return 0

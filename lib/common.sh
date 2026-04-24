@@ -47,14 +47,16 @@ log_debug()   { printf "${DIM}    %s${NC}\n" "$1"; }
 run_silent() {
     # Corre un comando y guarda salida en el log solo si falla.
     local desc="$1"; shift
-    local output exit_code
+    local output exit_code indented
     output=$("$@" 2>&1)
     exit_code=$?
     if [ $exit_code -ne 0 ] && [ -n "${LOG_FILE:-}" ]; then
+        # Indentar cada línea con 4 espacios usando bash parameter expansion
+        indented="    ${output//$'\n'/$'\n'    }"
         {
             echo "[$(_ts)] FAIL ($exit_code): $desc"
             echo "    CMD: $*"
-            echo "$output" | sed 's/^/    /'
+            printf '%s\n' "$indented"
             echo ""
         } >> "$LOG_FILE"
     fi
@@ -178,13 +180,15 @@ projectup_summary() {
     # Imprime el resumen final con contador de warnings/errores del log.
     if [ -n "${LOG_FILE:-}" ] && [ -s "$LOG_FILE" ]; then
         local warn_count err_count
-        warn_count=$(grep -E "^\[.*\] WARN:" "$LOG_FILE" 2>/dev/null | wc -l | tr -d ' ')
-        err_count=$(grep -E "^\[.*\] (ERROR|FAIL|HOSTS_WRITE_FAIL):" "$LOG_FILE" 2>/dev/null | wc -l | tr -d ' ')
+        # grep -c exit 1 con 0 matches → con -uo pipefail (sin -e) la asignación
+        # sigue pasando con el "0" que grep imprime. Fallback por si el archivo no existe.
+        warn_count=$(grep -cE "^\[.*\] WARN:" "$LOG_FILE" 2>/dev/null)
+        err_count=$(grep -cE "^\[.*\] (ERROR|FAIL|HOSTS_WRITE_FAIL):" "$LOG_FILE" 2>/dev/null)
         warn_count=${warn_count:-0}
         err_count=${err_count:-0}
         if [ "$err_count" -gt 0 ] || [ "$warn_count" -gt 0 ]; then
-            printf "\n${YELLOW}⚠️   Hubo %d errores y %d warnings. Revisá: %s${NC}\n" \
-                "$err_count" "$warn_count" "$LOG_FILE"
+            printf '\n%s⚠️   Hubo %d errores y %d warnings. Revisá: %s%s\n' \
+                "$YELLOW" "$err_count" "$warn_count" "$LOG_FILE" "$NC"
         fi
     elif [ -n "${LOG_FILE:-}" ]; then
         rm -f "$LOG_FILE"

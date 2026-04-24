@@ -1,5 +1,10 @@
 # projectup
 
+[![shellcheck](https://github.com/ArtroxxGames/projectup/actions/workflows/shellcheck.yml/badge.svg)](https://github.com/ArtroxxGames/projectup/actions/workflows/shellcheck.yml)
+[![License: MIT](https://img.shields.io/github/license/ArtroxxGames/projectup?color=blue)](LICENSE)
+[![Latest tag](https://img.shields.io/github/v/tag/ArtroxxGames/projectup?label=version)](https://github.com/ArtroxxGames/projectup/releases)
+[![Stars](https://img.shields.io/github/stars/ArtroxxGames/projectup?style=social)](https://github.com/ArtroxxGames/projectup/stargazers)
+
 > Laragon-style dev environment para Linux y WSL. Open-source, gratis, hackeable.
 
 `projectup` es un CLI que te configura automáticamente un proyecto PHP/Laravel
